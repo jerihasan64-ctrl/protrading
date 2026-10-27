@@ -1,0 +1,669 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  TrendingUp, TrendingDown, Wallet, ShieldCheck, 
+  User, LogOut, ArrowUpRight, ArrowDownLeft, 
+  Check, Copy, Lock, Mail, Globe, AlertCircle, 
+  BarChart2, RefreshCw, Layers, DollarSign, PieChart 
+} from 'lucide-react';
+
+export default function App() {
+  // Authentication State
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [authMode, setAuthMode] = useState('login'); // 'login' or 'register'
+  
+  // User Form States
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+
+  // Active User Profile
+  const [user, setUser] = useState({
+    firstName: 'Demo',
+    lastName: 'Trader',
+    email: 'user@protrading.global',
+    balance: 1000.00
+  });
+
+  // Trading Dashboard States
+  const [activeTab, setActiveTab] = useState('trade'); // 'trade', 'deposit', 'wallet'
+  const [selectedAsset, setSelectedAsset] = useState({ symbol: 'BTC/USDT', name: 'Bitcoin', price: 68450.25, change: 3.42 });
+  const [amount, setAmount] = useState('');
+  const [leverage, setLeverage] = useState(10);
+  const [orderType, setOrderType] = useState('market'); // 'market', 'limit'
+  
+  // Deposit States
+  const [depositMethod, setDepositMethod] = useState('binance');
+  const [depositAmount, setDepositAmount] = useState('');
+  const [txId, setTxId] = useState('');
+  const [depositSuccess, setDepositSuccess] = useState(false);
+  const [copiedField, setCopiedField] = useState('');
+
+  // Positions & History
+  const [openPositions, setOpenPositions] = useState([]);
+  const [tradeHistory, setTradeHistory] = useState([]);
+
+  // Live Price Simulation
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setSelectedAsset(prev => {
+        const fluctuation = (Math.random() - 0.48) * (prev.price * 0.001);
+        const newPrice = parseFloat((prev.price + fluctuation).toFixed(2));
+        return { ...prev, price: newPrice };
+      });
+    }, 1500);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Handle Authentication
+  const handleAuthSubmit = (e) => {
+    e.preventDefault();
+    setAuthError('');
+
+    if (authMode === 'register') {
+      if (!firstName || !lastName || !email || !password) {
+        setAuthError('Please fill in all required fields.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setAuthError('Passwords do not match.');
+        return;
+      }
+      setUser({ firstName, lastName, email, balance: 50.00 }); // Welcome bonus or initial 0
+    } else {
+      if (!email || !password) {
+        setAuthError('Please enter your email and password.');
+        return;
+      }
+    }
+    setIsLoggedIn(true);
+  };
+
+  // Handle Deposit
+  const handleDepositSubmit = (e) => {
+    e.preventDefault();
+    if (!depositAmount || parseFloat(depositAmount) <= 0) {
+      alert('Please enter a valid deposit amount.');
+      return;
+    }
+    if (!txId && depositMethod !== 'demo') {
+      alert('Please enter your Transaction ID (TxID) / Hash.');
+      return;
+    }
+
+    const added = parseFloat(depositAmount);
+    setUser(prev => ({ ...prev, balance: prev.balance + added }));
+    setDepositSuccess(true);
+    setDepositAmount('');
+    setTxId('');
+    setTimeout(() => setDepositSuccess(false), 4000);
+  };
+
+  // Copy to Clipboard Helper
+  const copyToClipboard = (text, fieldName) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(fieldName);
+    setTimeout(() => setCopiedField(''), 2000);
+  };
+
+  // Execute Trade
+  const executeTrade = (type) => {
+    const tradeVal = parseFloat(amount);
+    if (!tradeVal || tradeVal <= 0) {
+      alert('Please enter a valid investment amount.');
+      return;
+    }
+    if (tradeVal > user.balance) {
+      alert('Insufficient balance! Please deposit funds.');
+      return;
+    }
+
+    // Deduct balance
+    setUser(prev => ({ ...prev, balance: prev.balance - tradeVal }));
+
+    const newPos = {
+      id: Date.now(),
+      symbol: selectedAsset.symbol,
+      type: type, // 'BUY' or 'SELL'
+      entryPrice: selectedAsset.price,
+      amount: tradeVal,
+      leverage: leverage,
+      pnl: 0.00
+    };
+
+    setOpenPositions([newPos, ...openPositions]);
+    setAmount('');
+  };
+
+  // Close Position
+  const closePosition = (id) => {
+    const pos = openPositions.find(p => p.id === id);
+    if (pos) {
+      const profitLoss = (Math.random() - 0.45) * pos.amount * 0.2; // Simulated PnL
+      const finalReturn = pos.amount + profitLoss;
+      setUser(prev => ({ ...prev, balance: prev.balance + Math.max(0, finalReturn) }));
+      
+      setTradeHistory([{ ...pos, closedPrice: selectedAsset.price, pnl: profitLoss, time: new Date().toLocaleTimeString() }, ...tradeHistory]);
+      setOpenPositions(openPositions.filter(p => p.id !== id));
+    }
+  };
+
+  // If NOT Logged In, show Global Auth Screen
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-[#0b0e14] text-gray-100 flex items-center justify-center p-4 font-sans">
+        <div className="max-w-md w-full bg-[#121824] border border-gray-800 rounded-2xl p-8 shadow-2xl">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-tr from-amber-500 to-yellow-400 rounded-xl mb-3 shadow-lg shadow-amber-500/20">
+              <TrendingUp className="w-8 h-8 text-gray-950 font-bold" />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-white">ProTrading Global</h1>
+            <p className="text-gray-400 text-sm mt-1">World-Class Crypto & Derivatives Exchange</p>
+          </div>
+
+          <div className="flex bg-[#1b2230] p-1 rounded-xl mb-6">
+            <button 
+              onClick={() => { setAuthMode('login'); setAuthError(''); }}
+              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${authMode === 'login' ? 'bg-amber-500 text-gray-950 shadow' : 'text-gray-400 hover:text-white'}`}
+            >
+              Sign In
+            </button>
+            <button 
+              onClick={() => { setAuthMode('register'); setAuthError(''); }}
+              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${authMode === 'register' ? 'bg-amber-500 text-gray-950 shadow' : 'text-gray-400 hover:text-white'}`}
+            >
+              Register
+            </button>
+          </div>
+
+          {authError && (
+            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{authError}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleAuthSubmit} className="space-y-4">
+            {authMode === 'register' && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">First Name</label>
+                  <input 
+                    type="text" 
+                    value={firstName} 
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="John" 
+                    className="w-full bg-[#1b2230] border border-gray-700/60 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">Last Name</label>
+                  <input 
+                    type="text" 
+                    value={lastName} 
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Doe" 
+                    className="w-full bg-[#1b2230] border border-gray-700/60 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-medium text-gray-400 mb-1">Email Address</label>
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-3 w-4 h-4 text-gray-500" />
+                <input 
+                  type="email" 
+                  value={email} 
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@example.com" 
+                  className="w-full bg-[#1b2230] border border-gray-700/60 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-400 mb-1">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3.5 top-3 w-4 h-4 text-gray-500" />
+                <input 
+                  type="password" 
+                  value={password} 
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••" 
+                  className="w-full bg-[#1b2230] border border-gray-700/60 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500"
+                />
+              </div>
+            </div>
+
+            {authMode === 'register' && (
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1">Confirm Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-3 w-4 h-4 text-gray-500" />
+                  <input 
+                    type="password" 
+                    value={confirmPassword} 
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••" 
+                    className="w-full bg-[#1b2230] border border-gray-700/60 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+            )}
+
+            <button 
+              type="submit" 
+              className="w-full bg-amber-500 hover:bg-amber-400 text-gray-950 font-bold py-3 rounded-xl transition-all shadow-lg shadow-amber-500/20 mt-2"
+            >
+              {authMode === 'login' ? 'Sign In to Dashboard' : 'Create Free Account'}
+            </button>
+          </form>
+
+          <div className="mt-6 pt-6 border-t border-gray-800/80 flex items-center justify-center gap-2 text-xs text-gray-500">
+            <Globe className="w-4 h-4" />
+            <span>Available Worldwide in 180+ Countries</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Main Dashboard View
+  return (
+    <div className="min-h-screen bg-[#0b0e14] text-gray-100 flex flex-col font-sans">
+      {/* Top Header */}
+      <header className="bg-[#121824] border-b border-gray-800 px-4 py-3 flex items-center justify-between sticky top-0 z-50">
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2.5 cursor-pointer">
+            <div className="w-9 h-9 bg-gradient-to-tr from-amber-500 to-yellow-400 rounded-lg flex items-center justify-center shadow-md shadow-amber-500/20">
+              <TrendingUp className="w-5 h-5 text-gray-950 font-bold" />
+            </div>
+            <span className="font-extrabold text-lg tracking-tight text-white">PRO<span className="text-amber-500">TRADING</span></span>
+          </div>
+          <nav className="hidden md:flex items-center gap-1">
+            <button 
+              onClick={() => setActiveTab('trade')} 
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'trade' ? 'bg-[#1b2230] text-amber-400 border border-amber-500/30' : 'text-gray-400 hover:text-white'}`}
+            >
+              Exchange Market
+            </button>
+            <button 
+              onClick={() => setActiveTab('deposit')} 
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'deposit' ? 'bg-[#1b2230] text-amber-400 border border-amber-500/30' : 'text-gray-400 hover:text-white'}`}
+            >
+              Deposit Funds
+            </button>
+            <button 
+              onClick={() => setActiveTab('wallet')} 
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'wallet' ? 'bg-[#1b2230] text-amber-400 border border-amber-500/30' : 'text-gray-400 hover:text-white'}`}
+            >
+              Wallet & Portfolio
+            </button>
+          </nav>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="hidden sm:flex items-center gap-3 bg-[#1b2230] px-3.5 py-1.5 rounded-xl border border-gray-700/50">
+            <Wallet className="w-4 h-4 text-amber-500" />
+            <div className="text-right">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wider">Total Balance</p>
+              <p className="text-sm font-bold text-white">${user.balance.toFixed(2)} USD</p>
+            </div>
+          </div>
+
+          <button 
+            onClick={() => setActiveTab('deposit')}
+            className="bg-amber-500 hover:bg-amber-400 text-gray-950 font-semibold px-4 py-2 rounded-xl text-sm transition-all shadow-md shadow-amber-500/10 flex items-center gap-1.5"
+          >
+            <ArrowDownLeft className="w-4 h-4" />
+            <span>Deposit</span>
+          </button>
+
+          <div className="flex items-center gap-2 pl-2 border-l border-gray-800">
+            <div className="w-9 h-9 bg-gray-800 rounded-full flex items-center justify-center font-bold text-amber-400 text-sm border border-gray-700">
+              {user.firstName[0]}
+            </div>
+            <button 
+              onClick={() => setIsLoggedIn(false)}
+              className="text-gray-400 hover:text-red-400 p-2 rounded-lg transition-colors"
+              title="Logout"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Mobile Sub-Navigation */}
+      <div className="md:hidden flex bg-[#121824] border-b border-gray-800 px-2 py-2">
+        <button onClick={() => setActiveTab('trade')} className={`flex-1 py-2 text-xs font-semibold rounded-lg text-center ${activeTab === 'trade' ? 'bg-amber-500 text-gray-950' : 'text-gray-400'}`}>Trade</button>
+        <button onClick={() => setActiveTab('deposit')} className={`flex-1 py-2 text-xs font-semibold rounded-lg text-center ${activeTab === 'deposit' ? 'bg-amber-500 text-gray-950' : 'text-gray-400'}`}>Deposit</button>
+        <button onClick={() => setActiveTab('wallet')} className={`flex-1 py-2 text-xs font-semibold rounded-lg text-center ${activeTab === 'wallet' ? 'bg-amber-500 text-gray-950' : 'text-gray-400'}`}>Wallet</button>
+      </div>
+
+      {/* Main Content Area */}
+      <main className="flex-1 p-4 max-w-7xl mx-auto w-full">
+        {activeTab === 'trade' && (
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+            {/* Left: Asset Selector */}
+            <div className="bg-[#121824] border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
+              <h2 className="text-sm font-bold text-gray-300 uppercase tracking-wider flex items-center gap-2">
+                <BarChart2 className="w-4 h-4 text-amber-500" />
+                <span>Markets</span>
+              </h2>
+              <div className="space-y-2">
+                {[
+                  { symbol: 'BTC/USDT', name: 'Bitcoin', price: selectedAsset.symbol === 'BTC/USDT' ? selectedAsset.price : 68450.25, change: 3.42 },
+                  { symbol: 'ETH/USDT', name: 'Ethereum', price: 3520.10, change: 2.15 },
+                  { symbol: 'SOL/USDT', name: 'Solana', price: 145.80, change: -1.20 },
+                  { symbol: 'AAPL/USD', name: 'Apple Inc', price: 214.50, change: 0.85 },
+                  { symbol: 'EUR/USD', name: 'Euro / Dollar', price: 1.0872, change: 0.12 }
+                ].map((asset, idx) => (
+                  <div 
+                    key={idx}
+                    onClick={() => setSelectedAsset(asset)}
+                    className={`p-3 rounded-xl cursor-pointer transition-all flex items-center justify-between ${selectedAsset.symbol === asset.symbol ? 'bg-[#1b2230] border border-amber-500/40' : 'bg-[#0b0e14]/50 hover:bg-[#1b2230]/50 border border-transparent'}`}
+                  >
+                    <div>
+                      <p className="font-bold text-sm text-white">{asset.symbol}</p>
+                      <p className="text-xs text-gray-400">{asset.name}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold text-sm text-white">${asset.price.toLocaleString()}</p>
+                      <span className={`text-xs font-medium flex items-center justify-end gap-0.5 ${asset.change >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {asset.change >= 0 ? '+' : ''}{asset.change}%
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Center: Chart & Positions */}
+            <div className="lg:col-span-2 flex flex-col gap-4">
+              <div className="bg-[#121824] border border-gray-800 rounded-2xl p-5 flex flex-col justify-between h-[380px]">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-xl font-extrabold text-white">{selectedAsset.symbol}</h2>
+                      <span className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs px-2 py-0.5 rounded-full font-medium">Live Feed</span>
+                    </div>
+                    <p className="text-2xl font-bold text-amber-400 mt-1">${selectedAsset.price.toLocaleString()}</p>
+                  </div>
+                  <div className="flex gap-1 bg-[#1b2230] p-1 rounded-xl">
+                    {['1H', '4H', '1D', '1W'].map((tf, i) => (
+                      <button key={i} className={`px-3 py-1 text-xs font-semibold rounded-lg ${i === 2 ? 'bg-amber-500 text-gray-950' : 'text-gray-400 hover:text-white'}`}>{tf}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Simulated Candlestick Visualization */}
+                <div className="flex-1 flex items-end justify-between gap-1.5 px-2 py-4">
+                  {[45, 52, 48, 60, 55, 68, 62, 75, 70, 85, 80, 92, 88, 95, 90, 105, 98, 110, 104, 118].map((val, idx) => {
+                    const isGreen = idx % 2 === 0;
+                    return (
+                      <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end group relative">
+                        <div className={`w-0.5 ${isGreen ? 'bg-emerald-500' : 'bg-red-500'} h-full absolute`}></div>
+                        <div className={`w-full rounded-sm ${isGreen ? 'bg-emerald-500' : 'bg-red-500'}`} style={{ height: `${val}%` }}></div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-center justify-between pt-3 border-t border-gray-800 text-xs text-gray-400">
+                  <span>RSI: 58.4 (Neutral)</span>
+                  <span>SMA (20): 68,120.50</span>
+                  <span className="text-emerald-400 font-semibold">Volume: $4.28B</span>
+                </div>
+              </div>
+
+              {/* Open Positions Table */}
+              <div className="bg-[#121824] border border-gray-800 rounded-2xl p-5">
+                <h3 className="text-sm font-bold text-white mb-3 flex items-center justify-between">
+                  <span>Open Positions ({openPositions.length})</span>
+                  <RefreshCw className="w-4 h-4 text-gray-400 cursor-pointer hover:text-white" />
+                </h3>
+                {openPositions.length === 0 ? (
+                  <p className="text-xs text-gray-500 text-center py-6">No active positions right now. Place a trade from the right panel.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {openPositions.map(pos => (
+                      <div key={pos.id} className="bg-[#1b2230] p-3 rounded-xl flex items-center justify-between text-xs">
+                        <div>
+                          <span className={`font-bold px-2 py-0.5 rounded mr-2 ${pos.type === 'BUY' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>{pos.type}</span>
+                          <span className="font-semibold text-white">{pos.symbol}</span>
+                          <span className="text-gray-400 ml-2">({pos.leverage}x)</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-400 mr-3">Entry: ${pos.entryPrice}</span>
+                          <span className="text-emerald-400 font-bold mr-3">+${(pos.amount * 0.05).toFixed(2)}</span>
+                          <button onClick={() => closePosition(pos.id)} className="bg-red-500/20 hover:bg-red-500/30 text-red-400 px-2.5 py-1 rounded-lg font-semibold">Close</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right: Order Execution Panel */}
+            <div className="bg-[#121824] border border-gray-800 rounded-2xl p-5 flex flex-col gap-4">
+              <h2 className="text-sm font-bold text-gray-300 uppercase tracking-wider">Place Order</h2>
+              
+              <div className="flex bg-[#1b2230] p-1 rounded-xl">
+                <button onClick={() => setOrderType('market')} className={`flex-1 py-1.5 text-xs font-semibold rounded-lg ${orderType === 'market' ? 'bg-amber-500 text-gray-950' : 'text-gray-400'}`}>Market</button>
+                <button onClick={() => setOrderType('limit')} className={`flex-1 py-1.5 text-xs font-semibold rounded-lg ${orderType === 'limit' ? 'bg-amber-500 text-gray-950' : 'text-gray-400'}`}>Limit</button>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1">Investment Amount ($ USD)</label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3.5 top-3 w-4 h-4 text-gray-500" />
+                  <input 
+                    type="number" 
+                    value={amount} 
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="100" 
+                    className="w-full bg-[#1b2230] border border-gray-700/60 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex justify-between text-xs text-gray-400 mb-1">
+                  <span>Leverage</span>
+                  <span className="text-amber-400 font-bold">{leverage}x</span>
+                </div>
+                <input 
+                  type="range" 
+                  min="1" 
+                  max="100" 
+                  value={leverage} 
+                  onChange={(e) => setLeverage(e.target.value)}
+                  className="w-full accent-amber-500 cursor-pointer"
+                />
+              </div>
+
+              <div className="bg-[#1b2230] p-3 rounded-xl space-y-2 text-xs">
+                <div className="flex justify-between text-gray-400">
+                  <span>Available Balance:</span>
+                  <span className="text-white font-semibold">${user.balance.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-gray-400">
+                  <span>Trading Fee:</span>
+                  <span className="text-emerald-400 font-semibold">0.02%</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mt-auto">
+                <button 
+                  onClick={() => executeTrade('BUY')}
+                  className="bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-bold py-3 rounded-xl text-sm transition-all shadow-lg shadow-emerald-500/20"
+                >
+                  Buy / Long
+                </button>
+                <button 
+                  onClick={() => executeTrade('SELL')}
+                  className="bg-red-500 hover:bg-red-400 text-white font-bold py-3 rounded-xl text-sm transition-all shadow-lg shadow-red-500/20"
+                >
+                  Sell / Short
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'deposit' && (
+          <div className="max-w-2xl mx-auto bg-[#121824] border border-gray-800 rounded-2xl p-6 md:p-8 shadow-2xl">
+            <h2 className="text-xl font-bold text-white mb-1">Fund Your Trading Account</h2>
+            <p className="text-gray-400 text-sm mb-6">Select your preferred payment channel to instantly add USD to your balance.</p>
+
+            {depositSuccess && (
+              <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400 text-sm flex items-center gap-3">
+                <Check className="w-5 h-5 shrink-0" />
+                <span>Deposit successful! Your funds have been added to your live wallet balance.</span>
+              </div>
+            )}
+
+            <div className="grid grid-cols-3 gap-3 mb-6">
+              {[
+                { id: 'binance', name: 'Binance Pay' },
+                { id: 'btc', name: 'Bitcoin (BTC)' },
+                { id: 'usdt', name: 'USDT (TRC20)' }
+              ].map(m => (
+                <button 
+                  key={m.id}
+                  onClick={() => setDepositMethod(m.id)}
+                  className={`p-3 rounded-xl text-xs font-bold transition-all border ${depositMethod === m.id ? 'bg-amber-500 text-gray-950 border-amber-500' : 'bg-[#1b2230] text-gray-300 border-gray-700/60 hover:border-gray-500'}`}
+                >
+                  {m.name}
+                </button>
+              ))}
+            </div>
+
+            <div className="bg-[#1b2230] p-4 rounded-xl border border-gray-700/60 mb-6 space-y-3">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Payment Details (No QR Code)</p>
+              
+              {depositMethod === 'binance' && (
+                <div className="flex items-center justify-between bg-[#0b0e14] p-3 rounded-lg border border-gray-800">
+                  <div>
+                    <span className="text-xs text-gray-400 block">Binance Pay ID</span>
+                    <span className="font-mono text-sm font-bold text-white">284910384</span>
+                  </div>
+                  <button onClick={() => copyToClipboard('284910384', 'binance')} className="bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1">
+                    {copiedField === 'binance' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedField === 'binance' ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
+              )}
+
+              {depositMethod === 'btc' && (
+                <div className="flex items-center justify-between bg-[#0b0e14] p-3 rounded-lg border border-gray-800">
+                  <div className="overflow-hidden mr-2">
+                    <span className="text-xs text-gray-400 block">Bitcoin Address</span>
+                    <span className="font-mono text-xs font-bold text-white truncate block">1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa</span>
+                  </div>
+                  <button onClick={() => copyToClipboard('1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa', 'btc')} className="bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 shrink-0">
+                    {copiedField === 'btc' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedField === 'btc' ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
+              )}
+
+              {depositMethod === 'usdt' && (
+                <div className="flex items-center justify-between bg-[#0b0e14] p-3 rounded-lg border border-gray-800">
+                  <div className="overflow-hidden mr-2">
+                    <span className="text-xs text-gray-400 block">USDT TRC20 Address</span>
+                    <span className="font-mono text-xs font-bold text-white truncate block">TYD7X8qZ9pL1vW4mN2bK5jH3gF6eR8sT9u</span>
+                  </div>
+                  <button onClick={() => copyToClipboard('TYD7X8qZ9pL1vW4mN2bK5jH3gF6eR8sT9u', 'usdt')} className="bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 shrink-0">
+                    {copiedField === 'usdt' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedField === 'usdt' ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <form onSubmit={handleDepositSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1">Deposit Amount ($ USD)</label>
+                <input 
+                  type="number" 
+                  value={depositAmount} 
+                  onChange={(e) => setDepositAmount(e.target.value)}
+                  placeholder="500" 
+                  className="w-full bg-[#1b2230] border border-gray-700/60 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1">Transaction ID / Hash (TxID)</label>
+                <input 
+                  type="text" 
+                  value={txId} 
+                  onChange={(e) => setTxId(e.target.value)}
+                  placeholder="e.g. 0x4f8a2c1e..." 
+                  className="w-full bg-[#1b2230] border border-gray-700/60 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500 font-mono"
+                />
+              </div>
+
+              <button 
+                type="submit" 
+                className="w-full bg-amber-500 hover:bg-amber-400 text-gray-950 font-bold py-3 rounded-xl transition-all shadow-lg shadow-amber-500/20 mt-2"
+              >
+                Confirm & Credit Deposit
+              </button>
+            </form>
+          </div>
+        )}
+
+        {activeTab === 'wallet' && (
+          <div className="max-w-4xl mx-auto space-y-6">
+            <div className="bg-[#121824] border border-gray-800 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-4">
+              <div>
+                <p className="text-xs text-gray-400 uppercase tracking-wider">Account Holder</p>
+                <h2 className="text-xl font-bold text-white">{user.firstName} {user.lastName}</h2>
+                <p className="text-xs text-gray-400 mt-0.5">{user.email}</p>
+              </div>
+              <div className="bg-[#1b2230] px-6 py-4 rounded-xl border border-gray-700/50 text-right w-full md:w-auto">
+                <p className="text-xs text-gray-400 uppercase tracking-wider">Available Balance</p>
+                <p className="text-2xl font-extrabold text-amber-400">${user.balance.toFixed(2)} USD</p>
+              </div>
+            </div>
+
+            <div className="bg-[#121824] border border-gray-800 rounded-2xl p-6">
+              <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                <PieChart className="w-4 h-4 text-amber-500" />
+                <span>Trade History & Performance</span>
+              </h3>
+              {tradeHistory.length === 0 ? (
+                <p className="text-xs text-gray-500 text-center py-8">No completed trades yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {tradeHistory.map(th => (
+                    <div key={th.id} className="bg-[#1b2230] p-3.5 rounded-xl flex items-center justify-between text-xs">
+                      <div>
+                        <span className="font-bold text-white mr-2">{th.symbol}</span>
+                        <span className="text-gray-400">({th.type})</span>
+                      </div>
+                      <div className="text-right">
+                        <span className={`font-bold mr-4 ${th.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {th.pnl >= 0 ? '+' : ''}${th.pnl.toFixed(2)}
+                        </span>
+                        <span className="text-gray-500">{th.time}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
